@@ -29,6 +29,21 @@ from .stacking_estimator import StackingEstimator
 from .one_hot_encoder import OneHotEncoder, auto_select_categorical_features, _transform_selected
 from .feature_transformers import CategoricalSelector, ContinuousSelector
 from .feature_set_selector import FeatureSetSelector
+from .resAdjPredefinedSplits import resAdjPredefinedSplits
+from .resAdjScorers import resAdjMseScorer, resAdjR2Scorer
+from .resAdjTransformer import resAdjTransformer
+from .resAdjRegressors import resAdjAdaBoostRegressor, \
+                            resAdjDecisionTreeRegressor, \
+                            resAdjElasticNetCV, \
+                            resAdjExtraTreesRegressor, \
+                            resAdjGradientBoostingRegressor, \
+                            resAdjKNeighborsRegressor, \
+                            resAdjLassoLarsCV, \
+                            resAdjLinearSVR, \
+                            resAdjRandomForestRegressor, \
+                            resAdjRidgeCV, \
+                            resAdjSGDRegressor, \
+                            resAdjXGBRegressor
 try:
     from .nn import PytorchLRClassifier, PytorchMLPClassifier
 except (ModuleNotFoundError, ImportError):
