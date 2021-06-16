@@ -304,7 +304,8 @@ class TPOTBase(BaseEstimator):
         self.template = template
         self.warm_start = warm_start
         self.memory = memory
-        self.use_dask = use_dask
+#MOD        self.use_dask = use_dask
+        self.use_dask = False # MOD
         self.verbosity = verbosity
         self.disable_update_check = disable_update_check
         self.random_state = random_state
@@ -538,7 +539,8 @@ class TPOTBase(BaseEstimator):
     def _setup_toolbox(self):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            creator.create("FitnessMulti", base.Fitness, weights=(-1.0, 1.0))
+# MOD            creator.create("FitnessMulti", base.Fitness, weights=(-1.0, 1.0))
+            creator.create("FitnessMulti", base.Fitness, weights=(1.0, 1.0)) # MOD
             creator.create(
                 "Individual",
                 gp.PrimitiveTree,
@@ -1432,8 +1434,8 @@ class TPOTBase(BaseEstimator):
                         total_mins_elapsed
                     )
                 )
-
-    def _combine_individual_stats(self, operator_count, cv_score, individual_stats):
+# MOD    def _combine_individual_stats(self, operator_count, cv_score, cv_recall, individual_stats):
+    def _combine_individual_stats(self, cv_recall, cv_score, individual_stats): # MOD
         """Combine the stats with operator count and cv score and preprare to be written to _evaluated_individuals
 
         Parameters
@@ -1460,7 +1462,8 @@ class TPOTBase(BaseEstimator):
         stats = deepcopy(
             individual_stats
         )  # Deepcopy, since the string reference to predecessor should be cloned
-        stats["operator_count"] = operator_count
+# MOD        stats["operator_count"] = operator_count
+        stats["internal_cv_recall"] = cv_recall # MOD
         stats["internal_cv_score"] = cv_score
         return stats
 
@@ -1520,7 +1523,8 @@ class TPOTBase(BaseEstimator):
         )
 
         result_score_list = []
-
+        recall_list = [] # MOD
+        
         try:
             # check time limit before pipeline evaluation
             self._stop_by_max_time_mins()
@@ -1528,10 +1532,11 @@ class TPOTBase(BaseEstimator):
             if self._n_jobs == 1 and not self.use_dask:
                 for sklearn_pipeline in sklearn_pipeline_list:
                     self._stop_by_max_time_mins()
-                    val = partial_wrapped_cross_val_score(
+                    val, val2 = partial_wrapped_cross_val_score(
                         sklearn_pipeline=sklearn_pipeline
                     )
                     result_score_list = self._update_val(val, result_score_list)
+                    recall_list = self._update_val(val2, recall_list) # MOD END
             else:
                 # chunk size for pbar update
                 if self.use_dask:
@@ -1564,7 +1569,8 @@ class TPOTBase(BaseEstimator):
                         parallel = Parallel(
                             n_jobs=self._n_jobs, verbose=0, pre_dispatch="2*n_jobs"
                         )
-                        tmp_result_scores = parallel(
+# MOD                        tmp_result_scores = parallel(
+                        tmp_result_scores, tmp_recalls = parallel( # MOD
                             delayed(partial_wrapped_cross_val_score)(
                                 sklearn_pipeline=sklearn_pipeline
                             )
@@ -1572,9 +1578,12 @@ class TPOTBase(BaseEstimator):
                                 chunk_idx : chunk_idx + chunk_size
                             ]
                         )
+
                     # update pbar
                     for val in tmp_result_scores:
                         result_score_list = self._update_val(val, result_score_list)
+                    for val2 in tmp_recalls: # MOD BEGIN
+                        recall_list = self._update_val(val2, recall_list) # MOD END
 
         except (KeyboardInterrupt, SystemExit, StopIteration) as e:
             if self.verbosity > 0:
@@ -1592,14 +1601,17 @@ class TPOTBase(BaseEstimator):
             self._update_evaluated_individuals_(
                 result_score_list,
                 eval_individuals_str[:num_eval_ind],
-                operator_counts,
+# MOD                operator_counts,
+                recall_list,   # MOD
                 stats_dicts,
             )
             for ind in individuals[:num_eval_ind]:
                 ind_str = str(ind)
                 ind.fitness.values = (
-                    self.evaluated_individuals_[ind_str]["operator_count"],
-                    self.evaluated_individuals_[ind_str]["internal_cv_score"],
+# MOD                   self.evaluated_individuals_[ind_str]["operator_count"],
+                    self.evaluated_individuals_[ind_str]["internal_cv_recall"], # MOD
+                    self.evaluated_individuals_[ind_str]["internal_cv_score"]
+
                 )
 
             self._pareto_front.update(individuals[:num_eval_ind])
@@ -1608,14 +1620,16 @@ class TPOTBase(BaseEstimator):
             raise KeyboardInterrupt
 
         self._update_evaluated_individuals_(
-            result_score_list, eval_individuals_str, operator_counts, stats_dicts
+# MOD            result_score_list, eval_individuals_str, operator_counts, stats_dicts # MOD
+            result_score_list, eval_individuals_str, recall_list, stats_dicts # MOD
         )
 
         for ind in individuals:
             ind_str = str(ind)
             ind.fitness.values = (
-                self.evaluated_individuals_[ind_str]["operator_count"],
-                self.evaluated_individuals_[ind_str]["internal_cv_score"],
+# MOD               self.evaluated_individuals_[ind_str]["operator_count"],
+                self.evaluated_individuals_[ind_str]["internal_cv_recall"], # MOD
+                self.evaluated_individuals_[ind_str]["internal_cv_score"]
             )
         individuals = [ind for ind in population if not ind.fitness.valid]
         self._pareto_front.update(population)
@@ -1674,7 +1688,8 @@ class TPOTBase(BaseEstimator):
                 self.evaluated_individuals_[
                     individual_str
                 ] = self._combine_individual_stats(
-                    5000.0, -float("inf"), individual.statistics
+# MOD                    5000.0, -float("inf"), individual.statistics
+                    -float("inf"), -float("inf"), individual.statistics # MOD
                 )
                 self._update_pbar(
                     pbar_msg="Invalid pipeline encountered. Skipping its evaluation."
@@ -1687,7 +1702,8 @@ class TPOTBase(BaseEstimator):
                 self.evaluated_individuals_[
                     individual_str
                 ] = self._combine_individual_stats(
-                    5000.0, -float("inf"), individual.statistics
+# MOD                    5000.0, -float("inf"), individual.statistics
+                    -float("inf"), -float("inf"), individual.statistics # MOD
                 )
                 self._update_pbar(
                     pbar_msg="Invalid pipeline encountered. Skipping its evaluation."
@@ -1714,7 +1730,8 @@ class TPOTBase(BaseEstimator):
                     self.evaluated_individuals_[
                         individual_str
                     ] = self._combine_individual_stats(
-                        5000.0, -float("inf"), individual.statistics
+# MOD                        5000.0, -float("inf"), individual.statistics
+                        -float("inf"), -float("inf"), individual.statistics # MOD
                     )
                     self._update_pbar()
                     continue
@@ -1724,7 +1741,8 @@ class TPOTBase(BaseEstimator):
         return operator_counts, eval_individuals_str, sklearn_pipeline_list, stats_dicts
 
     def _update_evaluated_individuals_(
-        self, result_score_list, eval_individuals_str, operator_counts, stats_dicts
+# MOD            self, result_score_list, eval_individuals_str, operator_counts, stats_dicts # MOD
+            self, result_score_list, eval_individuals_str, recall_list, stats_dicts # MOD
     ):
         """Update self.evaluated_individuals_ and error message during pipeline evaluation.
 
@@ -1732,6 +1750,7 @@ class TPOTBase(BaseEstimator):
         ----------
         result_score_list: list
             A list of CV scores for evaluated pipelines
+        recall_list: list # MOD
         eval_individuals_str: list
             A list of strings for evaluated pipelines
         operator_counts: dict
@@ -1744,14 +1763,15 @@ class TPOTBase(BaseEstimator):
         -------
         None
         """
-        for result_score, individual_str in zip(
-            result_score_list, eval_individuals_str
+        for result_score, recall, individual_str in zip( # MOD
+                result_score_list, recall_list, eval_individuals_str # MOD
         ):
             if type(result_score) in [float, np.float64, np.float32]:
                 self.evaluated_individuals_[
                     individual_str
                 ] = self._combine_individual_stats(
-                    operator_counts[individual_str],
+# MOD                    operator_counts[individual_str],
+                    recall, # MOD
                     result_score,
                     stats_dicts[individual_str],
                 )

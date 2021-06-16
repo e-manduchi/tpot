@@ -30,6 +30,7 @@ from .operator_utils import set_sample_weight
 from sklearn.utils import indexable
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
+from sklearn.model_selection._validation import _score # MOD
 
 from sklearn.base import clone
 from collections import defaultdict
@@ -269,7 +270,8 @@ def eaMuPlusLambda(population, toolbox, mu, lambda_, cxpb, mutpb, ngen, pbar,
                             file=log_file)
                 for pipeline, pipeline_scores in zip(halloffame.items, reversed(halloffame.keys)):
                     pbar.write('\n{}\t{}\t{}'.format(
-                            int(pipeline_scores.wvalues[0]),
+                 # MOD           int(pipeline_scores.wvalues[0]),
+                            pipeline_scores.wvalues[0], #MOD
                             pipeline_scores.wvalues[1],
                             pipeline
                         ),
@@ -419,6 +421,7 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
 
     cv_iter = list(cv.split(features, target, groups))
     scorer = check_scoring(sklearn_pipeline, scoring=scoring_function)
+    scorer2 = check_scoring(sklearn_pipeline, scoring='recall') # MOD
 
     if use_dask:
         try:
@@ -462,6 +465,12 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
                                          error_score='raise',
                                          fit_params=sample_weight_dict)
                                     for train, test in cv_iter]
+                scores2 = [_score(estimator=clone(sklearn_pipeline), # MOD BEGIN
+                                         X_test=features[test],
+                                         y_test=target[test],
+                                         scorer=scorer2,
+                                         error_score='raise')
+                                    for train, test in cv_iter] # MOD END
                 if isinstance(scores[0], list): #scikit-learn <= 0.23.2
                     CV_score = np.array(scores)[:, 0]
                 elif isinstance(scores[0], dict): # scikit-learn >= 0.24
@@ -470,8 +479,10 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
                 else:
                     raise ValueError("Incorrect output format from _fit_and_score!")
                 CV_score_mean = np.nanmean(CV_score)
-            return CV_score_mean
+                CV_score2 = np.asarray(scores2) # MOD
+                CV_score2_mean = np.nanmean(CV_score2) # MOD
+            return CV_score_mean, CV_score2_mean
         except TimeoutException:
             return "Timeout"
         except Exception as e:
-            return -float('inf')
+            return -float('inf'), -float('inf')
