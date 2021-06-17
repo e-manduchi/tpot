@@ -1570,7 +1570,7 @@ class TPOTBase(BaseEstimator):
                             n_jobs=self._n_jobs, verbose=0, pre_dispatch="2*n_jobs"
                         )
 # MOD                        tmp_result_scores = parallel(
-                        tmp_result_scores, tmp_recalls = parallel( # MOD
+                        tmp_result_scores = parallel( # MOD BEGIN
                             delayed(partial_wrapped_cross_val_score)(
                                 sklearn_pipeline=sklearn_pipeline
                             )
@@ -1581,9 +1581,8 @@ class TPOTBase(BaseEstimator):
 
                     # update pbar
                     for val in tmp_result_scores:
-                        result_score_list = self._update_val(val, result_score_list)
-                    for val2 in tmp_recalls: # MOD BEGIN
-                        recall_list = self._update_val(val2, recall_list) # MOD END
+                        result_score_list = self._update_val(val[0], result_score_list) 
+                        recall_list = self._update_val(val[1], recall_list) # MOD END
 
         except (KeyboardInterrupt, SystemExit, StopIteration) as e:
             if self.verbosity > 0:
