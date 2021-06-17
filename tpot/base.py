@@ -1532,7 +1532,7 @@ class TPOTBase(BaseEstimator):
             if self._n_jobs == 1 and not self.use_dask:
                 for sklearn_pipeline in sklearn_pipeline_list:
                     self._stop_by_max_time_mins()
-                    val, val2 = partial_wrapped_cross_val_score(
+                    val, val2 = partial_wrapped_cross_val_score( # MOD
                         sklearn_pipeline=sklearn_pipeline
                     )
                     result_score_list = self._update_val(val, result_score_list)
