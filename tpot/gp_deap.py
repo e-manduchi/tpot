@@ -30,7 +30,6 @@ from .operator_utils import set_sample_weight
 from sklearn.utils import indexable
 from sklearn.metrics import check_scoring
 from sklearn.model_selection._validation import _fit_and_score
-from sklearn.model_selection._validation import _score # MOD
 
 from sklearn.base import clone
 from collections import defaultdict
@@ -421,7 +420,7 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
 
     cv_iter = list(cv.split(features, target, groups))
     scorer = check_scoring(sklearn_pipeline, scoring=scoring_function)
-    scorer2 = check_scoring(sklearn_pipeline, scoring='recall') # MOD
+    scorer2 = check_scoring(sklearn_pipeline, scoring='balanced_accuracy') # MOD
 
     if use_dask:
         try:
@@ -478,11 +477,12 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
                                     for train, test in cv_iter] # MOD END
                 if isinstance(scores[0], list): #scikit-learn <= 0.23.2
                     CV_score = np.array(scores)[:, 0]
-                    CV_score2 = np.array(scores2)[:, 0] # MOD
+                    CV_score2 = 2*np.array(scores2)[:, 0]-CV_score # MOD
                 elif isinstance(scores[0], dict): # scikit-learn >= 0.24
                     from sklearn.model_selection._validation import _aggregate_score_dicts
                     CV_score = _aggregate_score_dicts(scores)["test_scores"]
                     CV_score2 = _aggregate_score_dicts(scores2)["test_scores"] # MOD
+                    CV_score2 = 2*CV_score2-CV_score # MOD
                 else:
                     raise ValueError("Incorrect output format from _fit_and_score!")
                 CV_score_mean = np.nanmean(CV_score)
