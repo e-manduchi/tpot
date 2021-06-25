@@ -453,17 +453,6 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                scores = [_fit_and_score(estimator=clone(sklearn_pipeline),
-                                         X=features,
-                                         y=target,
-                                         scorer=scorer,
-                                         train=train,
-                                         test=test,
-                                         verbose=0,
-                                         parameters=None,
-                                         error_score='raise',
-                                         fit_params=sample_weight_dict)
-                                    for train, test in cv_iter]
                 scores2 = [_fit_and_score(estimator=clone(sklearn_pipeline), # MOD BEGIN
                                          X=features,
                                          y=target,
@@ -475,6 +464,17 @@ def _wrapped_cross_val_score(sklearn_pipeline, features, target,
                                          error_score='raise',
                                          fit_params=sample_weight_dict)
                                     for train, test in cv_iter] # MOD END
+                scores = [_fit_and_score(estimator=clone(sklearn_pipeline),
+                                         X=features,
+                                         y=target,
+                                         scorer=scorer,
+                                         train=train,
+                                         test=test,
+                                         verbose=0,
+                                         parameters=None,
+                                         error_score='raise',
+                                         fit_params=sample_weight_dict)
+                                    for train, test in cv_iter]
                 if isinstance(scores[0], list): #scikit-learn <= 0.23.2
                     CV_score = np.array(scores)[:, 0]
                     CV_score2 = 2*np.array(scores2)[:, 0]-CV_score # MOD
